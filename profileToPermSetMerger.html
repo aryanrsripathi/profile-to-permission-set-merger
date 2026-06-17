@@ -1,0 +1,365 @@
+<template>
+    <div class="merger-container">
+
+        <!-- ── HEADER ─────────────────────────────────────────────── -->
+        <div class="merger-header">
+            <lightning-icon icon-name="utility:merge" size="medium" class="header-icon"></lightning-icon>
+            <div class="header-text">
+                <h1>Profile → Permission Set Merger</h1>
+                <p>Additively merge a profile's permissions into an existing permission set. Nothing on the target is removed or downgraded.</p>
+            </div>
+        </div>
+
+        <!-- ── APPROACH BADGE ─────────────────────────────────────── -->
+        <div class="approach-badge">
+            <lightning-icon icon-name="utility:apex_plugin" size="x-small"></lightning-icon>
+            <span>&nbsp;Metadata API deploy + direct grants — same org</span>
+        </div>
+
+        <!-- ── PROGRESS ───────────────────────────────────────────── -->
+        <div class="progress-bar-wrapper">
+            <lightning-progress-indicator current-step={currentStep} type="base">
+                <lightning-progress-step label="Select Profile"        value="1"></lightning-progress-step>
+                <lightning-progress-step label="Select Permission Set" value="2"></lightning-progress-step>
+                <lightning-progress-step label="Choose Permissions"    value="3"></lightning-progress-step>
+                <lightning-progress-step label="Deploy"                value="4"></lightning-progress-step>
+            </lightning-progress-indicator>
+        </div>
+
+        <!-- ════════════════════════════════════════════════════════ -->
+        <!-- SCREEN 1 — Select Profile                               -->
+        <!-- ════════════════════════════════════════════════════════ -->
+        <template if:true={isStep1}>
+            <lightning-card title="Step 1 of 4 — Select Source Profile" icon-name="standard:profile">
+                <div class="card-body">
+                    <p class="step-hint">Choose the <strong>source profile</strong> whose permissions will be merged into a permission set.</p>
+
+                    <div class="picker" onfocusout={closeProfileDropdown}>
+                        <lightning-input
+                            type="search"
+                            label="Filter profiles"
+                            placeholder="Type to filter…"
+                            value={profileSearch}
+                            onchange={handleProfileSearch}
+                            onfocus={openProfileDropdown}>
+                        </lightning-input>
+                        <template if:true={profileDropdownOpen}>
+                            <ul class="picker-list">
+                                <template for:each={filteredProfileOptions} for:item="opt">
+                                    <li key={opt.value}
+                                        class={opt.rowClass}
+                                        data-value={opt.value}
+                                        onmousedown={selectProfile}>
+                                        <span>{opt.label}</span>
+                                        <template if:true={opt.selected}>
+                                            <lightning-icon icon-name="utility:check" size="xx-small" variant="success"></lightning-icon>
+                                        </template>
+                                    </li>
+                                </template>
+                                <template if:true={profileNoMatches}>
+                                    <li class="picker-empty">No profiles match your search.</li>
+                                </template>
+                            </ul>
+                        </template>
+                    </div>
+
+                    <template if:true={profileSummary}>
+                        <div class="summary-box slds-m-top_medium">
+                            <p class="summary-title">
+                                <lightning-icon icon-name="utility:info" size="x-small"></lightning-icon>
+                                &nbsp;Permission summary for <strong>{selectedProfile}</strong>
+                            </p>
+                            <div class="summary-grid">
+                                <div class="summary-cell"><span class="cell-label">Objects</span><span class="cell-val">{profileSummary.objectPerms}</span></div>
+                                <div class="summary-cell"><span class="cell-label">Fields</span><span class="cell-val">{profileSummary.fieldPerms}</span></div>
+                                <div class="summary-cell"><span class="cell-label">Apex Classes</span><span class="cell-val">{profileSummary.apexClasses}</span></div>
+                                <div class="summary-cell"><span class="cell-label">VF Pages</span><span class="cell-val">{profileSummary.vfPages}</span></div>
+                                <div class="summary-cell"><span class="cell-label">Flows</span><span class="cell-val">{profileSummary.flows}</span></div>
+                                <div class="summary-cell"><span class="cell-label">Custom Perms</span><span class="cell-val">{profileSummary.customPerms}</span></div>
+                                <div class="summary-cell"><span class="cell-label">Tab Settings</span><span class="cell-val">{profileSummary.tabSettings}</span></div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <div class="button-row slds-m-top_large">
+                        <lightning-button label="Next" variant="brand"
+                            icon-name="utility:chevronright" icon-position="right"
+                            disabled={step1Disabled} onclick={goStep2}></lightning-button>
+                    </div>
+                </div>
+            </lightning-card>
+        </template>
+
+        <!-- ════════════════════════════════════════════════════════ -->
+        <!-- SCREEN 2 — Select Permission Set                        -->
+        <!-- ════════════════════════════════════════════════════════ -->
+        <template if:true={isStep2}>
+            <lightning-card title="Step 2 of 4 — Select Target Permission Set" icon-name="standard:permission_set">
+                <div class="card-body">
+                    <div class="selected-badge">
+                        <lightning-icon icon-name="utility:check" size="x-small" variant="success"></lightning-icon>
+                        <span>&nbsp;Source Profile: <strong>{selectedProfile}</strong></span>
+                    </div>
+
+                    <p class="step-hint slds-m-top_medium">
+                        Choose the <strong>target permission set</strong>. Its permissions will be upgraded additively — nothing is removed or downgraded.
+                    </p>
+
+                    <div class="picker" onfocusout={closePermSetDropdown}>
+                        <lightning-input
+                            type="search"
+                            label="Filter permission sets"
+                            placeholder="Type to filter…"
+                            value={permSetSearch}
+                            onchange={handlePermSetSearch}
+                            onfocus={openPermSetDropdown}>
+                        </lightning-input>
+                        <template if:true={permSetDropdownOpen}>
+                            <ul class="picker-list">
+                                <template for:each={filteredPermSetOptions} for:item="opt">
+                                    <li key={opt.value}
+                                        class={opt.rowClass}
+                                        data-value={opt.value}
+                                        onmousedown={selectPermSet}>
+                                        <span>{opt.label}</span>
+                                        <template if:true={opt.selected}>
+                                            <lightning-icon icon-name="utility:check" size="xx-small" variant="success"></lightning-icon>
+                                        </template>
+                                    </li>
+                                </template>
+                                <template if:true={permSetNoMatches}>
+                                    <li class="picker-empty">No permission sets match your search.</li>
+                                </template>
+                            </ul>
+                        </template>
+                    </div>
+
+                    <div class="button-row slds-m-top_large">
+                        <lightning-button label="Back" variant="neutral" icon-name="utility:chevronleft" onclick={goStep1}></lightning-button>
+                        <lightning-button label="Next" variant="brand"
+                            icon-name="utility:chevronright" icon-position="right"
+                            disabled={step2Disabled} onclick={goStep3}></lightning-button>
+                    </div>
+                </div>
+            </lightning-card>
+        </template>
+
+        <!-- ════════════════════════════════════════════════════════ -->
+        <!-- SCREEN 3 — Choose All 20 Permissions                    -->
+        <!-- ════════════════════════════════════════════════════════ -->
+        <template if:true={isStep3}>
+            <lightning-card title="Step 3 of 4 — Choose Permissions to Merge" icon-name="utility:settings">
+                <div class="card-body">
+
+                    <!-- Source → Target banner -->
+                    <div class="merge-banner">
+                        <div class="banner-item">
+                            <span class="banner-label">Source Profile</span>
+                            <span class="banner-value">{selectedProfile}</span>
+                        </div>
+                        <lightning-icon icon-name="utility:forward" size="small" class="banner-arrow"></lightning-icon>
+                        <div class="banner-item">
+                            <span class="banner-label">Target Permission Set</span>
+                            <span class="banner-value">{selectedPermSet}</span>
+                        </div>
+                    </div>
+
+                    <!-- Search + quick selects -->
+                    <div class="filter-row slds-m-top_small">
+                        <lightning-input
+                            type="search"
+                            variant="label-hidden"
+                            placeholder="Filter categories…"
+                            value={categoryFilter}
+                            onchange={handleFilterChange}
+                            class="filter-input">
+                        </lightning-input>
+                    </div>
+                    <div class="select-row">
+                        <a onclick={selectAll} class="link-btn">Select all</a>
+                        <span class="sep">|</span>
+                        <a onclick={clearAll}  class="link-btn">Clear all</a>
+                        <span class="count-badge">{selectedCount} / {totalCount} selected</span>
+                    </div>
+
+                    <!-- No matches -->
+                    <template if:true={noMatches}>
+                        <div class="no-match-notice slds-m-top_small">
+                            <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
+                            <span>&nbsp;No categories match "<strong>{categoryFilter}</strong>".</span>
+                            <a onclick={clearFilter} class="link-btn">&nbsp;Clear filter</a>
+                        </div>
+                    </template>
+
+                    <!-- ── APPS GROUP ── -->
+                    <template if:true={hasAppMatches}>
+                    <div class="cat-section slds-m-top_medium">
+                        <div class="section-hdr">
+                            <lightning-icon icon-name="utility:apps" size="x-small"></lightning-icon>
+                            <span class="section-title">&nbsp;Apps</span>
+                            <span class="section-sub">Settings that apply to Salesforce apps and custom Lightning Platform apps</span>
+                        </div>
+                        <div class="cat-grid">
+                            <template for:each={filteredAppCategories} for:item="cat">
+                                <div key={cat.value} class="cat-row">
+                                    <lightning-input type="checkbox"
+                                        label={cat.label}
+                                        checked={cat.checked}
+                                        data-value={cat.value}
+                                        onchange={handleCatChange}>
+                                    </lightning-input>
+                                    <p class="cat-desc">{cat.description}</p>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    </template>
+
+                    <!-- ── SYSTEM GROUP ── -->
+                    <template if:true={hasSystemMatches}>
+                    <div class="cat-section slds-m-top_medium">
+                        <div class="section-hdr">
+                            <lightning-icon icon-name="utility:settings" size="x-small"></lightning-icon>
+                            <span class="section-title">&nbsp;System</span>
+                            <span class="section-sub">Settings that apply across all apps, such as record and user management</span>
+                        </div>
+                        <div class="cat-grid">
+                            <template for:each={filteredSystemCategories} for:item="cat">
+                                <div key={cat.value} class="cat-row">
+                                    <lightning-input type="checkbox"
+                                        label={cat.label}
+                                        checked={cat.checked}
+                                        data-value={cat.value}
+                                        onchange={handleCatChange}>
+                                    </lightning-input>
+                                    <p class="cat-desc">{cat.description}</p>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    </template>
+
+                    <div class="button-row slds-m-top_large">
+                        <lightning-button label="Back" variant="neutral" icon-name="utility:chevronleft" onclick={goStep2}></lightning-button>
+                        <lightning-button
+                            label={mergeLabel}
+                            variant="brand"
+                            icon-name="utility:upload"
+                            disabled={mergeDisabled}
+                            onclick={handleMerge}>
+                        </lightning-button>
+                    </div>
+                </div>
+            </lightning-card>
+        </template>
+
+        <!-- ════════════════════════════════════════════════════════ -->
+        <!-- SCREEN 4 — Deploy Progress                              -->
+        <!-- ════════════════════════════════════════════════════════ -->
+        <template if:true={isStep4}>
+            <lightning-card title="Step 4 of 4 — Deployment Status" icon-name="utility:upload">
+                <div class="card-body">
+
+                    <div class="merge-banner slds-m-bottom_medium">
+                        <div class="banner-item">
+                            <span class="banner-label">Profile</span>
+                            <span class="banner-value">{selectedProfile}</span>
+                        </div>
+                        <lightning-icon icon-name="utility:forward" size="small" class="banner-arrow"></lightning-icon>
+                        <div class="banner-item">
+                            <span class="banner-label">Permission Set</span>
+                            <span class="banner-value">{selectedPermSet}</span>
+                        </div>
+                    </div>
+
+                    <!-- Polling status -->
+                    <template if:false={deployDone}>
+                        <div class="deploy-pending">
+                            <p class="deploy-status-text">Deploying via Metadata API… <strong>{deployState}</strong></p>
+                            <div class="progress-wrap">
+                                <lightning-progress-bar value={deployPercent} size="large" variant="circular"></lightning-progress-bar>
+                            </div>
+                            <p class="deploy-sub">{deployedCount} of {totalComponents} components ({deployPercent}%)</p>
+                            <lightning-button label="Refresh status" variant="neutral"
+                                icon-name="utility:refresh" onclick={pollStatus}
+                                class="slds-m-top_small">
+                            </lightning-button>
+                        </div>
+                    </template>
+
+                    <template if:true={deployDone}>
+                        <template if:true={deploySuccess}>
+                            <div class="result-success">
+                                <lightning-icon icon-name="action:approval" size="large"></lightning-icon>
+                                <h2 class="result-title">Merge complete</h2>
+                                <p class="result-msg">Selected permissions were merged into <strong>{selectedPermSet}</strong>.</p>
+
+                                <!-- Merged categories list -->
+                                <div class="merged-list slds-m-top_medium">
+                                    <p class="merged-title">Categories merged ({selectedCount}):</p>
+                                    <ul>
+                                        <template for:each={mergedCategories} for:item="cat">
+                                            <li key={cat}>
+                                                <lightning-icon icon-name="utility:check" size="x-small" variant="success"></lightning-icon>
+                                                &nbsp;{cat}
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </div>
+
+                                <!-- Skipped (SetupEntityAccess rows the org rejected) -->
+                                <template if:true={hasSkipped}>
+                                    <div class="skipped-box slds-m-top_medium">
+                                        <p class="skipped-title">
+                                            <lightning-icon icon-name="utility:warning" size="x-small"></lightning-icon>
+                                            &nbsp;{skippedCount} access row(s) skipped — applied everything else:
+                                        </p>
+                                        <ul class="skipped-list">
+                                            <template for:each={skippedItems} for:item="sk">
+                                                <li key={sk}>{sk}</li>
+                                            </template>
+                                        </ul>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+
+                        <template if:false={deploySuccess}>
+                            <div class="result-error">
+                                <lightning-icon icon-name="utility:error" size="large" variant="error"></lightning-icon>
+                                <h2 class="result-title error-title">Deployment failed</h2>
+                                <p class="result-msg error-text">{deployError}</p>
+                                <p class="deploy-sub">{deployedCount} of {totalComponents} components deployed before failure.</p>
+                            </div>
+                        </template>
+                    </template>
+
+                    <div class="button-row slds-m-top_large">
+                        <lightning-button label="Start New Merge" variant="brand"
+                            icon-name="utility:refresh" onclick={resetWizard}></lightning-button>
+                    </div>
+                </div>
+            </lightning-card>
+        </template>
+
+
+        <!--
+            Hidden VF page iframe — posts session ID to this LWC via postMessage.
+            Standard Salesforce pattern for getting session ID inside LWC.
+        -->
+        <iframe src="/apex/PermSetMergerSession"
+                title="Session loader"
+                style="display:none;width:0;height:0;border:none;">
+        </iframe>
+
+                <!-- ── Spinner overlay ─────────────────────────────────── -->
+        <template if:true={isMerging}>
+            <div class="spinner-overlay">
+                <lightning-spinner size="large" variant="brand"
+                    alternative-text="Sending to Metadata API..."></lightning-spinner>
+                <p class="spinner-label">Sending to Metadata API…</p>
+            </div>
+        </template>
+
+    </div>
+</template>

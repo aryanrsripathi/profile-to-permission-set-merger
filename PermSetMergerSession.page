@@ -1,0 +1,25 @@
+<apex:page showHeader="false" sidebar="false" standardStylesheets="false" applyBodyTag="false" contentType="text/html">
+<html>
+<body>
+<script>
+    // Supply a Metadata-API-capable session id to the parent LWC.
+    // NOTE: in Lightning Experience the parent (LWC) and this VF page live on
+    // DIFFERENT origins (lightning.force.com vs *.vf.force.com), so we cannot
+    // target window.location.origin here — that is THIS page's origin, not the
+    // parent's, and the browser would drop the message. We post to '*'; the
+    // parent validates the sender origin against Salesforce-owned domains.
+    var sessionId = '{!$Api.Session_ID}';
+    function postSession() {
+        try {
+            window.parent.postMessage(
+                { type: 'PERM_MERGER_SESSION', sessionId: sessionId }, '*');
+        } catch (e) { /* ignore */ }
+    }
+    // Post immediately and once more shortly after, in case the parent's
+    // listener attaches a tick later than this iframe loads.
+    postSession();
+    setTimeout(postSession, 500);
+</script>
+</body>
+</html>
+</apex:page>
