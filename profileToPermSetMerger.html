@@ -3,7 +3,9 @@
 
         <!-- ── HEADER ─────────────────────────────────────────────── -->
         <div class="merger-header">
-            <lightning-icon icon-name="utility:merge" size="medium" class="header-icon"></lightning-icon>
+            <div class="header-icon-wrap">
+                <lightning-icon icon-name="utility:merge" size="small" class="header-icon"></lightning-icon>
+            </div>
             <div class="header-text">
                 <h1>Profile → Permission Set Merger</h1>
                 <p>Additively merge a profile's permissions into an existing permission set. Nothing on the target is removed or downgraded.</p>
@@ -294,7 +296,6 @@
                                 <h2 class="result-title">Merge complete</h2>
                                 <p class="result-msg">Selected permissions were merged into <strong>{selectedPermSet}</strong>.</p>
 
-                                <!-- Merged categories list -->
                                 <div class="merged-list slds-m-top_medium">
                                     <p class="merged-title">Categories merged ({selectedCount}):</p>
                                     <ul>
@@ -307,7 +308,6 @@
                                     </ul>
                                 </div>
 
-                                <!-- Skipped (SetupEntityAccess rows the org rejected) -->
                                 <template if:true={hasSkipped}>
                                     <div class="skipped-box slds-m-top_medium">
                                         <p class="skipped-title">
@@ -342,17 +342,13 @@
             </lightning-card>
         </template>
 
-
-        <!--
-            Hidden VF page iframe — posts session ID to this LWC via postMessage.
-            Standard Salesforce pattern for getting session ID inside LWC.
-        -->
+        <!-- Hidden VF iframe for session ID via postMessage -->
         <iframe src="/apex/PermSetMergerSession"
                 title="Session loader"
                 style="display:none;width:0;height:0;border:none;">
         </iframe>
 
-                <!-- ── Spinner overlay ─────────────────────────────────── -->
+        <!-- Spinner overlay -->
         <template if:true={isMerging}>
             <div class="spinner-overlay">
                 <lightning-spinner size="large" variant="brand"
